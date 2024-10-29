@@ -1,6 +1,12 @@
 from raylibpy import *
 from enum import Enum
 
+terrainSize = {
+    "small" : (100,100),
+    "medium": (150,150),
+    "big"   : (300,300)
+}
+
 class Estado_global(Enum):
 
     intro = 1
@@ -46,28 +52,49 @@ class SimpleStateMachine:
                     print(self.current_state)
                     self.current_state = dead_loop(self.dimensions.x, self.dimensions.y,self.gametitle,self.current_state)
 
+class TerrainBlock:
 
+    def __init__(self,position,size,color):
 
+        self.location = position
+        self.smallRock = Rectangle(position.x,position.y,terrainSize["small"][0],terrainSize["small"][1])
+        self.mediumRock = Rectangle(position.x,position.y,terrainSize["medium"][0],terrainSize["medium"][1])
+        self.bigRock = Rectangle(position.x,position.y,terrainSize["big"][0],terrainSize["big"][1])
 
-        close_window()
+        self.size = size
+        self.drawsize = None
+        self.color = color
+        self.type = "rock"
+        self.sizeMatch()
 
+    def sizeMatch(self):
+
+        match self.size:
+            case "small":
+                self.drawsize = self.smallRock
+            case "medium":
+                self.drawsize = self.mediumRock
+            case "big":
+                self.drawsize = self.bigRock
+
+    def draw(self):
+
+        draw_rectangle_rec(self.drawsize,self.color)
+        
 class Circle:
 
-    def __init__(self,location,radius,color,type,hp,movespeed = 1,enemylevel = 0):
+    def __init__(self,location,radius,color,hp,movespeed = 1):
 
         self.location = location
         self.radius = radius
         self.color = color
-        self.type = type
         self.hp = hp
         self.score = 0
         self.velocity = Vector2(0,0)
         self.movespeed = movespeed
         self.hurt = False
-        self.thickness = 1
         self.movebuffer = 0
-        self.enemylevel = enemylevel
- 
+        self.type = "player"
 
         self.direction = 0
         self.value = 1    
@@ -75,23 +102,18 @@ class Circle:
 
     def draw(self):
 
-        match self.type:
-
-            case "fill":
-                draw_circle_v(self.location,self.radius,self.color)
-            case "outline":
-                for i in range(self.thickness):
-                    draw_circle_lines_v(self.location, self.radius+i, self.color)
-            case "enemy":
-                draw_circle_v(self.location,self.radius,self.color)
+        draw_circle_v(self.location,self.radius,self.color)
+       
 
     def collision(self,group):
 
         for e in group.elements:
 
             if check_collision_circles(self.location,self.radius,e.location,e.radius):
+
                 match e.type:
-                    case "outline":
+
+                    case "coin":
                         self.score += 1
                         group.elements.remove(e)
 
@@ -103,10 +125,24 @@ class Circle:
             elif not check_collision_circles(self.location,self.radius,e.location,e.radius) and e.type == "enemy":
                 self.hurt = False
 
+    def terraincollision(self,group):
+
+        for e in group.elements:
+            if e.type == "rock" and check_collision_circle_rec(self.location, self.radius, e.drawsize):
+
+                self.location -= self.input(self.velocity)
+                            
+
+
+
+
+
 
     def input(self,velocity):
 
         velocity = Vector2(0,0)
+
+
 
         if is_key_down(KEY_A):
             velocity.x -= self.movespeed
@@ -119,37 +155,8 @@ class Circle:
 
         return velocity
 
-    def enemyAI(self):
-        movement_range1, movement_range2 = 5, 100
-
-        if self.movebuffer == 0:
-
-            self.direction = get_random_value(0,1)
-            self.value = get_random_value(-1,1)
-            self.movebuffer = get_random_value(movement_range1,movement_range2)
 
 
-    
-        if self.direction == 0:
-
-            self.location.x += self.movespeed * self.value
-            self.movebuffer -= 1
-            
-
-        elif self.direction == 1:
-            self.location.y -= self.movespeed * self.value
-            self.movebuffer -=1
-
-
-    def coinWobble(self):
-        movement_range1, movement_range2 = 2,6
-
-        if self.movebuffer == 0:
-            self.movebuffer = get_random_value(movement_range1,movement_range2)
-            self.value = -self.value
-
-        self.location.y += self.movespeed * self.value
-        self.movebuffer -= 1
 
     def screenlimits(self,dimensions):
 
@@ -168,17 +175,80 @@ class Circle:
 
         self.screenlimits(dimensions)
 
-        if self.type == "enemy":
-            self.enemyAI()
+        self.location += self.input(self.velocity)
 
-        elif self.type == "fill":
-            self.location += self.input(self.velocity)
+class Enemy(Circle):
 
-        elif self.type == "outline":
-            self.coinWobble()
+    def __init__(self,*args):
+        super().__init__(*args)
+
+        self.color = BLACK
+        self.enemylevel = 1
+        self.type = "enemy"
 
 
+    def enemyAI(self):
 
+        movement_range1, movement_range2 = 5, 100
+
+        if self.movebuffer == 0:
+
+            self.direction = get_random_value(0,1)
+            self.value = get_random_value(-1,1)
+            self.movebuffer = get_random_value(movement_range1,movement_range2)
+
+    
+        if self.direction == 0:
+
+            self.location.x += self.movespeed * self.value
+            self.movebuffer -= 1
+            
+
+        elif self.direction == 1:
+            self.location.y -= self.movespeed * self.value
+            self.movebuffer -=1
+
+    def update(self,dimensions):
+        
+        self.screenlimits(dimensions)
+        self.enemyAI()
+
+    def draw(self):
+
+        draw_circle_v(self.location,self.radius,self.color)
+
+class Coin(Circle):
+
+    def __init__(self,*args):
+        super().__init__(*args)
+
+        self.color = GREEN
+        self.thickness = 10
+        self.type = "coin"
+
+
+    def coinWobble(self):
+
+        movement_range1, movement_range2 = 2,6
+
+        if self.movebuffer == 0:
+            self.movebuffer = get_random_value(movement_range1,movement_range2)
+            self.value = -self.value
+
+        self.location.y += self.movespeed * self.value
+        self.movebuffer -= 1
+
+
+    def update(self, dimensions):
+
+        self.screenlimits(dimensions)
+        self.coinWobble()
+
+
+    def draw(self):
+
+        for i in range(self.thickness):
+            draw_circle_lines_v(self.location, self.radius+i, self.color)
 
 class Group:
 
@@ -199,14 +269,6 @@ class Group:
 
         for element in self.elements:
             element.draw()
-
-    def set_group_thickness(self,thic):
-
-        for element in self.elements:
-            element.thickness = thic
-
-
-
 
 class Gui:
 
@@ -235,12 +297,24 @@ class Gui:
     def draw_intro(self):
 
         draw_text(self.title, self.titlepositionx,self.window_height/2,30,BLACK)
-        draw_text("//press ENTER//", self.titlepositionx+20,(self.window_height/2)+50,30,RED)
+        draw_text("//presiona ENTER//", self.titlepositionx+20,(self.window_height/2)+50,30,RED)
 
     def draw_dead(self):
+
         draw_text("//TE MORISTE JAJAJAJAJA//", self.titlepositionx+20,(self.window_height/2)+50,30,RED)
         draw_text("PRESIONA ENTER PARA REVIVIR", self.titlepositionx+20,(self.window_height/2)+80,30,GREEN)
 
+
+    def draw_pause(self):
+
+        draw_rectangle(0,(self.window_height/2)+20,self.window_width,50,GRAY)
+        draw_text("PAUSA", self.titlepositionx+100,(self.window_height/2)+10,80,RED)
+        draw_text("Presiona P para continuar", self.titlepositionx+150,(self.window_height/2)+100,30,RED)
+
+
+    def draw_debug(self,player):
+
+        draw_text(f"hurted player? {player.hurt}",self.window_width/2,50,20,RED)
 
 def intro_loop(WINDOW_WIDTH,WINDOW_HEIGHT,gametitle,current_state):
 
@@ -265,56 +339,72 @@ def intro_loop(WINDOW_WIDTH,WINDOW_HEIGHT,gametitle,current_state):
     close_window()
 
 
-
 def game_loop(WINDOW_WIDTH,WINDOW_HEIGHT,game_title,current_state):
 
-    
     dimensions = Vector2(WINDOW_WIDTH,WINDOW_HEIGHT)
                     
-    circle1 = Circle(Vector2(500,500),10,PINK,"fill",10,5)
+    circle1 = Circle(Vector2(500,500),10,PINK,10,5)
     gamegui = Gui(WINDOW_WIDTH,WINDOW_HEIGHT, game_title,circle1)
 
-    circle2 = Circle(Vector2(400,400),15,GREEN,"outline",1)
-    circle3 = Circle(Vector2(460,400),15,GREEN,"outline",1)
-    circle4 = Circle(Vector2(520,400),15,GREEN,"outline",1)
+    circle2 = Coin(Vector2(400,400),15,GREEN,1)
+    circle3 = Coin(Vector2(460,400),15,GREEN,1)
+    circle4 = Coin(Vector2(520,400),15,GREEN,1)
 
-    enemy1 = Circle(Vector2(800,800),20,BLACK,"enemy",10,4,2)
+    enemy1 = Enemy(Vector2(800,800),20,BLACK,10,2)
+    enemy2 = Enemy(Vector2(600,360),20,BLACK,10,2)
+
+    rock1 = TerrainBlock(Vector2(100,100),"small",BROWN)
 
     player_group = Group([circle1])
     circle_group = Group([circle2,circle3,circle4])
-    circle_group.set_group_thickness(10)
-
     enemy_group = Group([enemy1])
+    terrain_group = Group([rock1])
+
+    paused = False
 
 
     while not window_should_close():
 
-        begin_drawing()
+        if is_key_pressed(KEY_P):
+            paused = not paused
 
-        clear_background(WHITE)
+        if not paused:
+            begin_drawing()
 
-        player_group.update(dimensions)
-        if circle1.hp <= 0:
-            current_state = Estado_global.dead
-            print(f"orale me voy a {current_state}")
-            return current_state
+            clear_background(WHITE)
 
-        enemy_group.update(dimensions)
-        circle_group.update(dimensions)
+            player_group.update(dimensions)
 
-        circle1.collision(circle_group)
-        circle1.collision(enemy_group)
+            if circle1.hp <= 0:
+                current_state = Estado_global.dead
+                print(f"orale me voy a {current_state}")
+                return current_state
 
-        player_group.draw()
-        circle_group.draw()
-        enemy_group.draw()
-        gamegui.draw_hud()
+            enemy_group.update(dimensions)
+            circle_group.update(dimensions)
 
-        end_drawing()
+            circle1.collision(circle_group)
+            circle1.collision(enemy_group)
+            circle1.terraincollision(terrain_group)
+
+            terrain_group.draw()
+            player_group.draw()
+            circle_group.draw()
+            enemy_group.draw()
+            
+            gamegui.draw_hud()
+            gamegui.draw_debug(circle1)
+
+            end_drawing()
         
+        else:
+            begin_drawing()
+            gamegui.draw_pause()
+            end_drawing()
+
+
     close_window()
     
-
 
 def dead_loop(WINDOW_WIDTH,WINDOW_HEIGHT,gametitle,current_state):
 
