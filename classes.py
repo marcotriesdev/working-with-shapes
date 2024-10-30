@@ -86,7 +86,7 @@ class Circle:
     def __init__(self,location,radius,color,hp,movespeed = 1):
 
         self.location = location
-        self.radius = radius
+        self.radius = radius 
         self.color = color
         self.hp = hp
         self.score = 0
@@ -95,6 +95,7 @@ class Circle:
         self.hurt = False
         self.movebuffer = 0
         self.type = "player"
+        self.collisions_list = []
 
         self.direction = 0
         self.value = 1    
@@ -102,10 +103,14 @@ class Circle:
 
     def draw(self):
 
-        draw_circle_v(self.location,self.radius,self.color)
+        if self.hurt:
+            draw_circle_v(self.location,self.radius,RED)
+        else:    
+            draw_circle_v(self.location,self.radius,self.color)
+
        
 
-    def collision(self,group):
+    def collision_coins(self,group):
 
         for e in group.elements:
 
@@ -117,25 +122,41 @@ class Circle:
                         self.score += 1
                         group.elements.remove(e)
 
-                    case "enemy":
-                        if not self.hurt:
-                            self.hurt = True
-                            self.hp -= e.enemylevel
-            
-            elif not check_collision_circles(self.location,self.radius,e.location,e.radius) and e.type == "enemy":
-                self.hurt = False
+    def collision_enemy(self,group):
+
+        self.collisions_list.clear()
+
+        for e in group.elements:
+
+            if check_collision_circles(self.location,self.radius,e.location,e.radius):
+
+                self.collisions_list.append(e)
+                
+
+
+        if  self.collisions_list:
+
+            if self.hurt == False:
+
+                self.hurt = True
+                self.hp -= e.enemylevel
+                    
+                
+
+        if not self.collisions_list:       
+            self.hurt = False
+        
+
+
 
     def terraincollision(self,group):
 
         for e in group.elements:
+
             if e.type == "rock" and check_collision_circle_rec(self.location, self.radius, e.drawsize):
 
                 self.location -= self.input(self.velocity)
                             
-
-
-
-
 
 
     def input(self,velocity):
@@ -154,8 +175,6 @@ class Circle:
             velocity.y += self.movespeed
 
         return velocity
-
-
 
 
     def screenlimits(self,dimensions):
@@ -179,11 +198,11 @@ class Circle:
 
 class Enemy(Circle):
 
-    def __init__(self,*args):
-        super().__init__(*args)
+    def __init__(self,location,radius,color,hp, enemylevel, movespeed = 1):
+        super().__init__(location,radius,color,hp,movespeed = 1)
 
         self.color = BLACK
-        self.enemylevel = 1
+        self.enemylevel = enemylevel
         self.type = "enemy"
 
 
@@ -315,6 +334,7 @@ class Gui:
     def draw_debug(self,player):
 
         draw_text(f"hurted player? {player.hurt}",self.window_width/2,50,20,RED)
+        draw_text(f"colision list {player.collisions_list}",2,100,20,RED)
 
 def intro_loop(WINDOW_WIDTH,WINDOW_HEIGHT,gametitle,current_state):
 
@@ -343,21 +363,21 @@ def game_loop(WINDOW_WIDTH,WINDOW_HEIGHT,game_title,current_state):
 
     dimensions = Vector2(WINDOW_WIDTH,WINDOW_HEIGHT)
                     
-    circle1 = Circle(Vector2(500,500),10,PINK,10,5)
+    circle1 = Circle(Vector2(500,500),10,SKYBLUE,10,5)
     gamegui = Gui(WINDOW_WIDTH,WINDOW_HEIGHT, game_title,circle1)
 
     circle2 = Coin(Vector2(400,400),15,GREEN,1)
     circle3 = Coin(Vector2(460,400),15,GREEN,1)
     circle4 = Coin(Vector2(520,400),15,GREEN,1)
 
-    enemy1 = Enemy(Vector2(800,800),20,BLACK,10,2)
-    enemy2 = Enemy(Vector2(600,360),20,BLACK,10,2)
+    enemy1 = Enemy(Vector2(800,800),20,BLACK,10,2,2)
+    enemy2 = Enemy(Vector2(600,360),20,BLACK,10,2,2)
 
     rock1 = TerrainBlock(Vector2(100,100),"small",BROWN)
 
     player_group = Group([circle1])
-    circle_group = Group([circle2,circle3,circle4])
-    enemy_group = Group([enemy1])
+    coins_group = Group([circle2,circle3,circle4])
+    enemy_group = Group([enemy1,enemy2])
     terrain_group = Group([rock1])
 
     paused = False
@@ -371,7 +391,7 @@ def game_loop(WINDOW_WIDTH,WINDOW_HEIGHT,game_title,current_state):
         if not paused:
             begin_drawing()
 
-            clear_background(WHITE)
+            clear_background(LIGHTGRAY)
 
             player_group.update(dimensions)
 
@@ -381,15 +401,15 @@ def game_loop(WINDOW_WIDTH,WINDOW_HEIGHT,game_title,current_state):
                 return current_state
 
             enemy_group.update(dimensions)
-            circle_group.update(dimensions)
+            coins_group.update(dimensions)
 
-            circle1.collision(circle_group)
-            circle1.collision(enemy_group)
+            circle1.collision_coins(coins_group)
+            circle1.collision_enemy(enemy_group)
             circle1.terraincollision(terrain_group)
 
             terrain_group.draw()
             player_group.draw()
-            circle_group.draw()
+            coins_group.draw()
             enemy_group.draw()
             
             gamegui.draw_hud()
