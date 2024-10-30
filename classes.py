@@ -2,10 +2,37 @@ from raylibpy import *
 from enum import Enum
 
 terrainSize = {
-    "small" : (100,100),
-    "medium": (150,150),
-    "big"   : (300,300)
+    "small" : Vector2(50,50),
+    "medium": Vector2(100,100),
+    "big"   : Vector2(150,150)
 }
+
+testscenarios = {
+    "test0" :  [[1,0,2,0,3,0,1],
+                [0,0,0,0,0,0,0]],
+
+    "test1" : [[1,0,1,1,1,1,1],
+               [1,0,0,0,0,0,1],
+               [1,0,0,0,0,0,1],
+               [1,0,0,0,0,0,1],
+               [1,0,0,0,0,0,1],
+               [1,1,1,1,0,1,1]],
+
+    "test2" : [[2,1,0,1,0,1,2],
+               [1,0,0,0,0,0,1],
+               [1,0,0,0,0,0,1],
+               [1,0,0,2,0,0,1],
+               [1,0,0,0,0,0,1],
+               [2,1,0,1,0,1,2]],
+
+    "test3" : [[2,1,0,0,0,1,2],
+               [1,0,0,0,0,0,1],
+               [1,0,0,0,0,0,1],
+               [0,0,0,3,0,0,0],
+               [1,0,0,0,0,0,1],
+               [2,1,0,0,0,1,2]]
+}
+
 
 class Estado_global(Enum):
 
@@ -22,6 +49,49 @@ class Estado(Enum):
     attack = 3
     flee = 4
 
+
+class TerrainGenerator:
+
+    def __init__(self):
+
+        self.types_limit = 3
+        self.none_value = 0
+
+    def generate_terrain(self,array: list, xstart: int, ystart:int, group):
+        marginy = 0
+        for line in array:
+            print(line)
+            marginx = 0
+
+            for number in line:
+
+                if number <= self.types_limit:
+                    
+                    match number:
+
+                        case 1 :
+                            newblock = TerrainBlock(Vector2(xstart+marginx,ystart+marginy),"small")
+                            marginx += terrainSize["small"].x
+                            
+                        case 2 :
+                            newblock = TerrainBlock(Vector2(xstart+marginx,ystart+marginy),"medium")
+                            marginx += terrainSize["medium"].x
+
+                        case 3 :
+                            newblock = TerrainBlock(Vector2(xstart+marginx,ystart+marginy),"big")
+                            marginx += terrainSize["big"].x
+
+                        case 0 :
+                            marginx += terrainSize["big"].x
+
+                    group.add(newblock)
+
+            marginy += terrainSize["big"].y
+                    
+
+
+
+
 class SimpleStateMachine:
 
     def __init__(self, init_state,WINDOW_WIDTH,WINDOW_HEIGHT,gametitle):
@@ -34,7 +104,6 @@ class SimpleStateMachine:
     def update(self):
 
         while not window_should_close():
-            print("xulo")
 
             match self.current_state:
 
@@ -54,12 +123,12 @@ class SimpleStateMachine:
 
 class TerrainBlock:
 
-    def __init__(self,position,size,color):
+    def __init__(self,position,size,color = BROWN):
 
         self.location = position
-        self.smallRock = Rectangle(position.x,position.y,terrainSize["small"][0],terrainSize["small"][1])
-        self.mediumRock = Rectangle(position.x,position.y,terrainSize["medium"][0],terrainSize["medium"][1])
-        self.bigRock = Rectangle(position.x,position.y,terrainSize["big"][0],terrainSize["big"][1])
+        self.smallRock = Rectangle(position.x,position.y,terrainSize["small"].x,terrainSize["small"].y)
+        self.mediumRock = Rectangle(position.x,position.y,terrainSize["medium"].x,terrainSize["medium"].y)
+        self.bigRock = Rectangle(position.x,position.y,terrainSize["big"].x,terrainSize["big"].y)
 
         self.size = size
         self.drawsize = None
@@ -72,10 +141,13 @@ class TerrainBlock:
         match self.size:
             case "small":
                 self.drawsize = self.smallRock
+                self.color = DARKGRAY
             case "medium":
                 self.drawsize = self.mediumRock
+                self.color = BROWN
             case "big":
                 self.drawsize = self.bigRock
+                self.color = BLACK
 
     def draw(self):
 
@@ -299,6 +371,8 @@ class Gui:
         self.titlepositionx = (window_width/2)-(25*(len(self.title)/2))
         self.player = player
 
+        self.debug_state = False
+
         pass
 
     
@@ -331,10 +405,13 @@ class Gui:
         draw_text("Presiona P para continuar", self.titlepositionx+150,(self.window_height/2)+100,30,RED)
 
 
-    def draw_debug(self,player):
+    def draw_debug(self,player,activate):
 
-        draw_text(f"hurted player? {player.hurt}",self.window_width/2,50,20,RED)
-        draw_text(f"colision list {player.collisions_list}",2,100,20,RED)
+        self.debug_state = activate
+
+        if activate:
+            draw_text(f"hurted player? {player.hurt}",self.window_width/2,50,20,RED)
+            draw_text(f"colision list {player.collisions_list}",2,100,20,RED)
 
 def intro_loop(WINDOW_WIDTH,WINDOW_HEIGHT,gametitle,current_state):
 
@@ -373,12 +450,13 @@ def game_loop(WINDOW_WIDTH,WINDOW_HEIGHT,game_title,current_state):
     enemy1 = Enemy(Vector2(800,800),20,BLACK,10,2,2)
     enemy2 = Enemy(Vector2(600,360),20,BLACK,10,2,2)
 
-    rock1 = TerrainBlock(Vector2(100,100),"small",BROWN)
-
     player_group = Group([circle1])
     coins_group = Group([circle2,circle3,circle4])
     enemy_group = Group([enemy1,enemy2])
-    terrain_group = Group([rock1])
+    terrain_group = Group([])
+
+    terraingen = TerrainGenerator()
+    terraingen.generate_terrain(testscenarios["test2"],5,5,terrain_group)
 
     paused = False
 
@@ -413,7 +491,7 @@ def game_loop(WINDOW_WIDTH,WINDOW_HEIGHT,game_title,current_state):
             enemy_group.draw()
             
             gamegui.draw_hud()
-            gamegui.draw_debug(circle1)
+            gamegui.draw_debug(circle1,False)
 
             end_drawing()
         
