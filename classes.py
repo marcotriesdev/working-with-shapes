@@ -1,11 +1,17 @@
 from raylibpy import *
 from enum import Enum
+import asyncio
 
 terrainSize = {
     "small" : Vector2(50,50),
     "medium": Vector2(100,100),
     "big"   : Vector2(150,150)
 }
+
+#LITERALES PARA QUE LOS ARRAYS DE MAPAS NO SE DISTORSIONEN MUCHO
+c = "c"
+x = "x"
+
 
 testscenarios = {
     "test0" :  [[1,0,2,0,3,0,1],
@@ -30,7 +36,15 @@ testscenarios = {
                [1,0,0,0,0,0,1],
                [0,0,0,3,0,0,0],
                [1,0,0,0,0,0,1],
-               [2,1,0,0,0,1,2]]
+               [2,1,0,0,0,1,2]],
+
+    "test4" : [[2,1,0,0,0,1,2,1,1,1,1,1],
+               [1,0,x,0,0,0,x,0,c,c,0,1],
+               [1,0,x,0,0,0,0,0,0,0,c,1],
+               [0,0,0,3,0,0,0,0,0,0,c,0],
+               [1,x,0,0,0,0,1,0,0,c,0,2],
+               [2,1,0,0,x,1,2,0,0,0,0,3]],
+
 }
 
 
@@ -54,37 +68,45 @@ class TerrainGenerator:
 
     def __init__(self):
 
-        self.types_limit = 3
-        self.none_value = 0
+        pass
 
-    def generate_terrain(self,array: list, xstart: int, ystart:int, group):
+    def generate_terrain(self,array: list, xstart: int, ystart:int, group_terrain,group_items,group_enemy):
         marginy = 0
         for line in array:
-            print(line)
+        
             marginx = 0
 
             for number in line:
-
-                if number <= self.types_limit:
                     
-                    match number:
+                match number:
 
-                        case 1 :
-                            newblock = TerrainBlock(Vector2(xstart+marginx,ystart+marginy),"small")
-                            marginx += terrainSize["small"].x
-                            
-                        case 2 :
-                            newblock = TerrainBlock(Vector2(xstart+marginx,ystart+marginy),"medium")
-                            marginx += terrainSize["medium"].x
+                    case 1 :
+                        newblock = TerrainBlock(Vector2(xstart+marginx,ystart+marginy),"small")
+                        marginx += terrainSize["small"].x
+                        
+                    case 2 :
+                        newblock = TerrainBlock(Vector2(xstart+marginx,ystart+marginy),"medium")
+                        marginx += terrainSize["medium"].x
 
-                        case 3 :
-                            newblock = TerrainBlock(Vector2(xstart+marginx,ystart+marginy),"big")
-                            marginx += terrainSize["big"].x
+                    case 3 :
+                        newblock = TerrainBlock(Vector2(xstart+marginx,ystart+marginy),"big")
+                        marginx += terrainSize["big"].x
 
-                        case 0 :
-                            marginx += terrainSize["big"].x
+                    case "c":
+                        newitem = Coin(Vector2(xstart+marginx,ystart+marginy),15,GREEN,1)
+                        group_items.add(newitem)
 
-                    group.add(newblock)
+                    case "x":
+                        newenemy = Enemy(Vector2(xstart+marginx,ystart+marginy),20,BLACK,10,2,2)
+                        group_enemy.add(newenemy)
+
+                    case 0 :
+                        marginx += terrainSize["big"].x
+
+
+                    
+                if newblock:
+                    group_terrain.add(newblock)
 
             marginy += terrainSize["big"].y
                     
@@ -168,9 +190,11 @@ class Circle:
         self.movebuffer = 0
         self.type = "player"
         self.collisions_list = []
+        self.erase = False
 
         self.direction = 0
         self.value = 1    
+
 
 
     def draw(self):
@@ -181,18 +205,18 @@ class Circle:
             draw_circle_v(self.location,self.radius,self.color)
 
        
-
     def collision_coins(self,group):
 
         for e in group.elements:
 
-            if check_collision_circles(self.location,self.radius,e.location,e.radius):
+            if check_collision_circles(self.location,self.radius,e.location,e.radius) and e.type == "coin" :
 
-                match e.type:
+                self.score += 1
+                newfadingcoin = FadingCoin(e.location,e.radius,e.color,e.hp)
+                group.add(newfadingcoin)
+                group.remove_element(e)
+               
 
-                    case "coin":
-                        self.score += 1
-                        group.elements.remove(e)
 
     def collision_enemy(self,group):
 
@@ -204,7 +228,6 @@ class Circle:
 
                 self.collisions_list.append(e)
                 
-
 
         if  self.collisions_list:
 
@@ -316,11 +339,11 @@ class Coin(Circle):
         self.color = GREEN
         self.thickness = 10
         self.type = "coin"
-
+        
 
     def coinWobble(self):
 
-        movement_range1, movement_range2 = 2,6
+        movement_range1, movement_range2 = 1,3
 
         if self.movebuffer == 0:
             self.movebuffer = get_random_value(movement_range1,movement_range2)
@@ -341,6 +364,28 @@ class Coin(Circle):
         for i in range(self.thickness):
             draw_circle_lines_v(self.location, self.radius+i, self.color)
 
+class FadingCoin(Coin):
+
+    def __init__(self,*args):
+
+        super().__init__(*args)
+
+        self.coin_fade()
+    
+    def coin_fade(self):
+        counter = 0
+
+        while counter < 120:
+
+            self.radius += 0.05
+
+            counter += 0.1
+
+        self.erase = True
+
+
+
+
 class Group:
 
     def __init__(self,elements):
@@ -351,15 +396,24 @@ class Group:
 
         self.elements.append(new_element) 
 
+    def remove_element(self,element):
+
+        self.elements.remove(element)
+
     def update(self,dimensions):
 
         for element in self.elements:
             element.update(dimensions)
+            if element.erase:
+                self.elements.remove(element)
 
     def draw(self):
 
         for element in self.elements:
             element.draw()
+            if hasattr(element,"erase"):
+                draw_text(str(element.erase),element.location.x,element.location.y,20,WHITE)
+            
 
 class Gui:
 
@@ -440,23 +494,17 @@ def game_loop(WINDOW_WIDTH,WINDOW_HEIGHT,game_title,current_state):
 
     dimensions = Vector2(WINDOW_WIDTH,WINDOW_HEIGHT)
                     
-    circle1 = Circle(Vector2(500,500),10,SKYBLUE,10,5)
-    gamegui = Gui(WINDOW_WIDTH,WINDOW_HEIGHT, game_title,circle1)
+    player1 = Circle(Vector2(500,500),10,SKYBLUE,10,5)
+    gamegui = Gui(WINDOW_WIDTH,WINDOW_HEIGHT, game_title,player1)
 
-    circle2 = Coin(Vector2(400,400),15,GREEN,1)
-    circle3 = Coin(Vector2(460,400),15,GREEN,1)
-    circle4 = Coin(Vector2(520,400),15,GREEN,1)
 
-    enemy1 = Enemy(Vector2(800,800),20,BLACK,10,2,2)
-    enemy2 = Enemy(Vector2(600,360),20,BLACK,10,2,2)
-
-    player_group = Group([circle1])
-    coins_group = Group([circle2,circle3,circle4])
-    enemy_group = Group([enemy1,enemy2])
+    player_group = Group([player1])
+    coins_group = Group([])
+    enemy_group = Group([])
     terrain_group = Group([])
 
     terraingen = TerrainGenerator()
-    terraingen.generate_terrain(testscenarios["test2"],5,5,terrain_group)
+    terraingen.generate_terrain(testscenarios["test4"],5,5,terrain_group,coins_group,enemy_group)
 
     paused = False
 
@@ -473,7 +521,7 @@ def game_loop(WINDOW_WIDTH,WINDOW_HEIGHT,game_title,current_state):
 
             player_group.update(dimensions)
 
-            if circle1.hp <= 0:
+            if player1.hp <= 0:
                 current_state = Estado_global.dead
                 print(f"orale me voy a {current_state}")
                 return current_state
@@ -481,9 +529,9 @@ def game_loop(WINDOW_WIDTH,WINDOW_HEIGHT,game_title,current_state):
             enemy_group.update(dimensions)
             coins_group.update(dimensions)
 
-            circle1.collision_coins(coins_group)
-            circle1.collision_enemy(enemy_group)
-            circle1.terraincollision(terrain_group)
+            player1.collision_coins(coins_group)
+            player1.collision_enemy(enemy_group)
+            player1.terraincollision(terrain_group)
 
             terrain_group.draw()
             player_group.draw()
@@ -491,7 +539,7 @@ def game_loop(WINDOW_WIDTH,WINDOW_HEIGHT,game_title,current_state):
             enemy_group.draw()
             
             gamegui.draw_hud()
-            gamegui.draw_debug(circle1,False)
+            gamegui.draw_debug(player1,False)
 
             end_drawing()
         
@@ -511,9 +559,7 @@ def dead_loop(WINDOW_WIDTH,WINDOW_HEIGHT,gametitle,current_state):
     while not window_should_close():
 
         begin_drawing()
-
         clear_background(WHITE)
-
         deadGUI.draw_dead()
 
         if is_key_pressed(KEY_ENTER):
