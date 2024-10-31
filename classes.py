@@ -372,23 +372,22 @@ class FadingCoin(Coin):
 
         super().__init__(*args)
         self.type = "fading_coin"
-
-        self.coin_fade()
-        
+        self.color = Color(0,228,48,255)        
 
     def coin_fade(self):
-        counter = 0
-
-        while counter < 100:
-            print(f" coin counter {counter}")
-            self.radius += 1
-            counter += 1
-
-
-        self.erase = True
+ 
+        print(self.radius)
+        if self.radius < 30:
+            self.radius += 5
+            self.color.a -= 10
+        else:
+            self.erase = True
 
 
+    def update(self,dimensions):
 
+        self.coin_fade()
+ 
 
 class Group:
 
@@ -551,7 +550,6 @@ def game_loop(WINDOW_WIDTH,WINDOW_HEIGHT,game_title,current_state):
             begin_drawing()
             gamegui.draw_pause()
             end_drawing()
-
 
     close_window()
     
