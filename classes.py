@@ -418,11 +418,11 @@ class Group:
             if element.erase:
                 self.elements.remove(element)
 
-    def draw(self):
+    def draw(self,gui):
 
         for element in self.elements:
             element.draw()
-            if hasattr(element,"erase"):
+            if hasattr(element,"erase") and gui.debug_state:
                 draw_text(str(element.type),element.location.x+20,element.location.y+20,20,WHITE)
             
 
@@ -550,10 +550,10 @@ def game_loop(WINDOW_WIDTH,WINDOW_HEIGHT,game_title,current_state):
             player1.collision_enemy(enemy_group)
             player1.terraincollision(terrain_group)
 
-            terrain_group.draw()
-            player_group.draw()
-            coins_group.draw()
-            enemy_group.draw()
+            terrain_group.draw(gamegui)
+            player_group.draw(gamegui)
+            coins_group.draw(gamegui)
+            enemy_group.draw(gamegui)
             
             gamegui.draw_hud()
             gamegui.draw_debug(player1,False)
