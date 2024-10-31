@@ -2,6 +2,8 @@ from raylibpy import *
 from enum import Enum
 import asyncio
 
+
+
 terrainSize = {
     "small" : Vector2(50,50),
     "medium": Vector2(100,100),
@@ -11,6 +13,12 @@ terrainSize = {
 #LITERALES PARA QUE LOS ARRAYS DE MAPAS NO SE DISTORSIONEN MUCHO
 c = "c"
 x = "x"
+
+
+
+
+#FONTS:
+
 
 
 testscenarios = {
@@ -126,7 +134,7 @@ class SimpleStateMachine:
     def update(self):
 
         while not window_should_close():
-
+            
             match self.current_state:
 
                 case Estado_global.intro:
@@ -429,10 +437,11 @@ class Gui:
         self.player = player
 
         self.debug_state = False
+        self.font_title = load_font("fonts/AntonSC-Regular.ttf")
+        self.font_text = load_font("fonts/Akshar-VariableFont_wght.ttf")
 
-        pass
 
-    
+
     def draw_hud(self):
 
         #DRAW GAME TITLE
@@ -444,10 +453,15 @@ class Gui:
         #DRAW HP
         draw_text(f"HP: {self.player.hp}", 50,120,40,BLACK)
 
+        #draw FPS
+        draw_fps(5,5)
+
     def draw_intro(self):
 
-        draw_text(self.title, self.titlepositionx,self.window_height/2,30,BLACK)
-        draw_text("//presiona ENTER//", self.titlepositionx+20,(self.window_height/2)+50,30,RED)
+        #draw_text(self.title, self.titlepositionx,self.window_height/2,30,BLACK)
+        #draw_text("//presiona ENTER//", self.titlepositionx+20,(self.window_height/2)+50,30,RED)
+        draw_text_ex(self.font_title,self.title,Vector2(self.titlepositionx,self.window_height/2),100,5,BLACK)
+        draw_text_ex(self.font_text,"//presiona ENTER//",Vector2(self.titlepositionx+20,(self.window_height/2)+90),80,1,RED)
 
     def draw_dead(self):
 
