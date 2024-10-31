@@ -39,9 +39,9 @@ testscenarios = {
                [2,1,0,0,0,1,2]],
 
     "test4" : [[2,1,0,0,0,1,2,1,1,1,1,1],
-               [1,0,x,0,0,0,x,0,c,c,0,1],
-               [1,0,x,0,0,0,0,0,0,0,c,1],
-               [0,0,0,3,0,0,0,0,0,0,c,0],
+               [1,0,x,0,0,0,x,0,0,c,0,1],
+               [1,0,x,0,0,0,0,0,c,0,0,1],
+               [0,0,0,3,0,c,0,0,0,0,c,0],
                [1,x,0,0,0,0,1,0,0,c,0,2],
                [2,1,0,0,x,1,2,0,0,0,0,3]],
 
@@ -209,12 +209,14 @@ class Circle:
 
         for e in group.elements:
 
-            if check_collision_circles(self.location,self.radius,e.location,e.radius) and e.type == "coin" :
 
-                self.score += 1
+            if check_collision_circles(self.location,self.radius,e.location,e.radius) and e.type == "coin" :
+                
                 newfadingcoin = FadingCoin(e.location,e.radius,e.color,e.hp)
-                group.add(newfadingcoin)
                 group.remove_element(e)
+                group.add(newfadingcoin)
+                self.score += 1
+                
                
 
 
@@ -228,7 +230,6 @@ class Circle:
 
                 self.collisions_list.append(e)
                 
-
         if  self.collisions_list:
 
             if self.hurt == False:
@@ -236,6 +237,7 @@ class Circle:
                 self.hurt = True
                 self.hp -= e.enemylevel
                     
+                
                 
 
         if not self.collisions_list:       
@@ -369,17 +371,19 @@ class FadingCoin(Coin):
     def __init__(self,*args):
 
         super().__init__(*args)
+        self.type = "fading_coin"
 
         self.coin_fade()
-    
+        
+
     def coin_fade(self):
         counter = 0
 
-        while counter < 120:
+        while counter < 100:
+            print(f" coin counter {counter}")
+            self.radius += 1
+            counter += 1
 
-            self.radius += 0.05
-
-            counter += 0.1
 
         self.erase = True
 
@@ -412,7 +416,7 @@ class Group:
         for element in self.elements:
             element.draw()
             if hasattr(element,"erase"):
-                draw_text(str(element.erase),element.location.x,element.location.y,20,WHITE)
+                draw_text(str(element.type),element.location.x+20,element.location.y+20,20,WHITE)
             
 
 class Gui:
