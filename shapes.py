@@ -5,7 +5,7 @@ WINDOW_WIDTH, WINDOW_HEIGHT = 1280, 900
 game_title = "EL COMEPUNTOS VOLADOR"
 dimensions = Vector2(WINDOW_WIDTH,WINDOW_HEIGHT)
 
-init_window(WINDOW_WIDTH,WINDOW_HEIGHT,"Raylib - Shapes")
+init_window(WINDOW_WIDTH,WINDOW_HEIGHT,"Raylib - El Comepuntos Volador")
 
 set_trace_log_level(LOG_NONE)
 

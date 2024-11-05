@@ -75,6 +75,26 @@ class States(Enum):
     attack = 3
     flee = 4
 
+class Background:
+
+    def __init__(self,position,backgrounds,background):
+
+        self.backgrounds = backgrounds
+        self.tint = Color(100,100,100,255)
+        self.texture = load_texture(self.backgrounds[background])
+        self.position = position
+        self.position2 = Vector2(self.position.x+(self.texture.width*global_scale),self.position.y)
+        self.position3 = Vector2(self.position2.x+(self.texture.width*global_scale),self.position.y)
+
+        print(f"pos {self.position} pos2 {self.position2} pos3 {self.position3}")
+
+    def draw_background(self):
+
+        draw_texture_ex(self.texture,self.position,0,global_scale,self.tint)
+        draw_texture_ex(self.texture,self.position2,0,global_scale,self.tint)
+        draw_texture_ex(self.texture,self.position3,0,global_scale,self.tint)
+
+
 
 class TerrainGenerator:
 
@@ -109,7 +129,7 @@ class TerrainGenerator:
                         group_items.add(newitem)
 
                     case "x":
-                        newenemy = Enemy(Vector2(xstart+marginx,ystart+marginy),20,BLACK,10,2,enemy_animations, 2)
+                        newenemy = Enemy(Vector2(xstart+marginx,ystart+marginy),20,WHITE,10,2,enemy_animations, 2)
                         group_enemy.add(newenemy)
 
                     case 0 :
@@ -183,7 +203,7 @@ class TerrainBlock:
                 self.drawsize = self.bigRock
                 self.color = BLACK
 
-    def draw(self):
+    def draw(self,debug):
 
         draw_rectangle_rec(self.drawsize,self.color)
         
@@ -217,12 +237,12 @@ class Animated:
         self.animations_array = animations
         self.frame_index = 0
         self.current_animation = self.animations_array["idle"]
-        self.texture = self.current_animation[0]
+        self.texture = load_texture(self.current_animation[0])
         self.animation_speed = 0.1
 
         self.playing = True
 
-        self.load_textures()
+        #self.load_textures()
 
     def load_textures(self):
 
@@ -243,20 +263,18 @@ class Animated:
     def animate(self):
 
 
-        if self.animate:
+        if self.playing:
 
             self.frame_index += self.animation_speed
 
-            if self.frame_index > len(self.current_animation) - 1:
-                self.frame_index = 0
-
-        
-            
+        if self.frame_index > len(self.current_animation):
+           self.frame_index = 0
 
 
     def __del__(self):
 
-        self.unload_textures()
+        #self.unload_textures()
+        pass
 
 
 class Circle(Animated):
@@ -265,8 +283,9 @@ class Circle(Animated):
         super().__init__(animations)
 
         self.location = location
-        self.radius = radius
-        self.radius2 = self.radius * 2 * global_scale
+        self.radius = radius * global_scale
+        self.coin_radius = radius
+        self.radius2 = self.radius * 2 
         self.color = color
         self.hp = hp
         self.score = 0
@@ -278,29 +297,29 @@ class Circle(Animated):
         self.state = "idle"
         self.collisions_list = []
         self.erase = False
+        self.debug = False
 
         self.direction = 0
         self.value = 1   
 
-        self.texture_position = Vector2(self.location.x-self.radius2,self.location.y-self.radius2)
+        self.texture_position = Vector2(self.location.x-self.radius-100,self.location.y-self.radius-100)
+        self.last_input = "right"
+        self.flip = 1
+        self.texture_rect_o = Rectangle(0,0,self.texture.width*self.flip,self.texture.height)
+        self.texture_rect = Rectangle(self.location.x,self.location.y,self.texture.width,self.texture.height)
+        
+
+    def flip_texture(self):
+
+        if self.last_input == "left":
+            self.flip = -1
+        if self.last_input == "right":
+            self.flip = 1
+
+        self.texture_rect_o = Rectangle(0,0,self.texture.width*self.flip,self.texture.height)
+        self.texture_rect = Rectangle(self.texture_position.x,self.texture_position.y,self.texture.width*global_scale,self.texture.height*global_scale)
 
 
-
-    def draw(self):
-
-        self.texture = load_texture(self.current_animation[int(self.frame_index)] )#CURRENT TEXTURE/ FRAME
-        print(self.current_animation[int(self.frame_index)])
-        if self.hurt:
-            draw_circle_v(self.location,self.radius*global_scale,RED)
-            draw_texture_ex(self.texture,self.texture_position,0,global_scale,RED)
-
-        else:    
-            draw_circle_v(self.location,self.radius*global_scale,self.color)
-            draw_texture_ex(self.texture,self.texture_position,0,global_scale,WHITE)
-
-
-
-       
     def collision_coins(self,group):
 
         for e in group.elements:
@@ -308,7 +327,7 @@ class Circle(Animated):
 
             if check_collision_circles(self.location,self.radius,e.location,e.radius) and e.type == "coin" :
                 
-                newfadingcoin = FadingCoin(e.location,e.radius,e.color,e.hp,coin_animations)
+                newfadingcoin = FadingCoin(e.location,e.radius/2,e.color,e.hp,coin_animations)
                 group.remove_element(e)
                 group.add(newfadingcoin)
                 self.score += 1
@@ -331,15 +350,10 @@ class Circle(Animated):
             if self.hurt == False:
 
                 self.hurt = True
-                self.hp -= e.enemylevel
-                    
-                
-                
+                self.hp -= e.enemylevel        
 
         if not self.collisions_list:       
             self.hurt = False
-        
-
 
 
     def terraincollision(self,group):
@@ -359,13 +373,16 @@ class Circle(Animated):
 
         if is_key_down(KEY_A):
             velocity.x -= self.movespeed
+            self.last_input = "left"   #QUE ORIENTACIÓN TIENE EL SPRITE
         if is_key_down(KEY_D):
             velocity.x += self.movespeed
+            self.last_input = "right"  #QUE ORIENTACIÓN TIENE EL SPRITE
         if is_key_down(KEY_W):
             velocity.y -= self.movespeed
         if is_key_down(KEY_S):
             velocity.y += self.movespeed
 
+        # CAMBIAR ANIMACION SEGUN 
         if velocity == Vector2(0,0):
             self.state = "idle"
         else:
@@ -385,7 +402,22 @@ class Circle(Animated):
             self.location.y = 0
         if self.location.y > dimensions.y:
             self.location.y = dimensions.y
-                       
+
+
+    def draw(self,debug):
+
+        self.texture = load_texture(self.current_animation[int(self.frame_index)] )#CURRENT TEXTURE/ FRAME
+
+        if self.hurt:
+            if debug:
+                draw_circle_v(self.location,self.radius,RED)
+            draw_texture_pro(self.texture,self.texture_rect_o,self.texture_rect,Vector2(0,0),0,RED)
+
+        else:
+            if debug:    
+                draw_circle_v(self.location,self.radius,self.color)
+            draw_texture_pro(self.texture,self.texture_rect_o,self.texture_rect,Vector2(0,0),0,self.color)
+
 
     def update(self,dimensions):
 
@@ -393,8 +425,12 @@ class Circle(Animated):
 
         self.location += self.input(self.velocity)
 
-        self.texture_position = Vector2(self.location.x-self.radius2,(self.location.y-self.radius2)-10)
-        self.current_animation = self.animations_array[self.state]
+        self.texture_position = Vector2(self.location.x-self.radius2,self.location.y-self.radius2-20)
+
+        #SE DEFINE LA ANIMACION SEGUN EL INDICE QUE ES EL STATE:
+        self.current_animation = self.animations_array[self.state] 
+
+        self.flip_texture()
 
         self.animate()
 
@@ -403,42 +439,58 @@ class Enemy(Circle):
     def __init__(self,location,radius,color,hp, enemylevel, animations, movespeed = 1):
         super().__init__(location,radius,color,hp,animations,movespeed = 1)
 
-        self.color = BLACK
+        self.color = color
         self.enemylevel = enemylevel
         self.type = "enemy"
         self.current_animation = self.animations_array["moving"]
 
 
 
-    def enemyAI(self):
+    def enemyAI_and_update(self):
 
         movement_range1, movement_range2 = 5, 100
 
         if self.movebuffer == 0:
 
+            self.state = "idle" #CAMBIAR ANIMACION
             self.direction = get_random_value(0,1)
             self.value = get_random_value(-1,1)
             self.movebuffer = get_random_value(movement_range1,movement_range2)
 
-    
-        if self.direction == 0:
+        elif self.movebuffer > 0:
 
+            self.state = "moving"  #CAMBIAR ANIMACION
+            
+        if self.direction == 0:
+            if self.value != 0:
+                self.flip = -self.value #VALOR NEGATIVO PORQUE SPRITE ESTÁ AL REVES QUE EL DEL PLAYER
             self.location.x += self.movespeed * self.value
             self.movebuffer -= 1
-            
 
         elif self.direction == 1:
             self.location.y -= self.movespeed * self.value
             self.movebuffer -=1
 
+        #UPDATE ENEMY LOCATION AND ORIENTATION OF SPRITE/TEXTURE
+        self.current_animation = self.animations_array[self.state] 
+
+        self.texture_position = Vector2(self.location.x-self.radius-10,self.location.y-self.radius-30)
+        self.texture_rect_o = Rectangle(0,0,self.texture.width*self.flip,self.texture.height)
+        self.texture_rect = Rectangle(self.texture_position.x,self.texture_position.y,self.texture.width*global_scale,self.texture.height*global_scale)
+        
+
+
     def update(self,dimensions):
         
         self.screenlimits(dimensions)
-        self.enemyAI()
+        self.enemyAI_and_update()
+        self.animate()
 
-    def draw(self):
+    def draw(self,debug):
 
-        draw_circle_v(self.location,self.radius,self.color)
+        if debug:
+            draw_circle_v(self.location,self.radius,self.color)
+        super().draw(debug)
 
 class Coin(Circle):
 
@@ -468,10 +520,10 @@ class Coin(Circle):
         self.coinWobble()
 
 
-    def draw(self):
+    def draw(self,debug):
 
         for i in range(self.thickness):
-            draw_circle_lines_v(self.location, self.radius+i, self.color)
+            draw_circle_lines_v(self.location, self.coin_radius+i, self.color)
 
 
 class FadingCoin(Coin):
@@ -484,9 +536,8 @@ class FadingCoin(Coin):
 
     def coin_fade(self):
  
-        print(self.radius)
-        if self.radius < 30:
-            self.radius += 5
+        if self.coin_radius < 50:
+            self.coin_radius += 1
             self.color.a -= 10
         else:
             self.erase = True
@@ -495,6 +546,7 @@ class FadingCoin(Coin):
     def update(self,dimensions):
 
         self.coin_fade()
+        
  
 
 class Group:
@@ -521,7 +573,7 @@ class Group:
     def draw(self,gui):
 
         for element in self.elements:
-            element.draw()
+            element.draw(gui.debug_state)
             if hasattr(element,"erase") and gui.debug_state:
                 draw_text(str(element.type),element.location.x+20,element.location.y+20,20,WHITE)
             
@@ -533,7 +585,7 @@ class Gui:
         self.window_width = window_width
         self.window_height = window_height
         self.title = title
-        self.titlepositionx = (window_width/2)-(25*(len(self.title)/2))
+        self.titlepositionx = (window_width/2)-(35*(len(self.title)/2))
         self.player = player
 
         self.debug_state = False
@@ -541,17 +593,16 @@ class Gui:
         self.font_text = load_font("fonts/Akshar-VariableFont_wght.ttf")
 
 
-
     def draw_hud(self):
 
         #DRAW GAME TITLE
-        draw_text(self.title, self.titlepositionx, 5, 40, BLACK)
+        draw_text_ex(self.font_title,self.title,Vector2(self.titlepositionx, 5), 60,20, WHITE)
 
         #DRAW SCORE
-        draw_text(f"SCORE: {self.player.score}",50,50,40,BLACK)
+        draw_text_ex(self.font_title,f"SCORE: {self.player.score}",Vector2(50,80),40,20,WHITE)
 
         #DRAW HP
-        draw_text(f"HP: {self.player.hp}", 50,120,40,BLACK)
+        draw_text_ex(self.font_title,f"HP: {self.player.hp}", (50,120),40,20,WHITE)
 
         #draw FPS
         draw_fps(5,5)
@@ -611,7 +662,7 @@ def game_loop(WINDOW_WIDTH,WINDOW_HEIGHT,game_title,current_state):
 
     dimensions = Vector2(WINDOW_WIDTH,WINDOW_HEIGHT)
                     
-    player1 = Circle(Vector2(500,500),10,SKYBLUE,10,player_animations,5)
+    player1 = Circle(Vector2(500,500),10,WHITE,10,player_animations,5)
     gamegui = Gui(WINDOW_WIDTH,WINDOW_HEIGHT, game_title,player1)
 
 
@@ -620,6 +671,7 @@ def game_loop(WINDOW_WIDTH,WINDOW_HEIGHT,game_title,current_state):
     enemy_group = Group([])
     terrain_group = Group([])
 
+    game_background = Background(Vector2(0,0),game_backgrounds,"back1")
     terraingen = TerrainGenerator()
     terraingen.generate_terrain(testscenarios["test4"],5,5,terrain_group,coins_group,enemy_group)
 
@@ -650,9 +702,10 @@ def game_loop(WINDOW_WIDTH,WINDOW_HEIGHT,game_title,current_state):
             player1.collision_enemy(enemy_group)
             player1.terraincollision(terrain_group)
 
+            game_background.draw_background()
             terrain_group.draw(gamegui)
-            player_group.draw(gamegui)
             coins_group.draw(gamegui)
+            player_group.draw(gamegui)
             enemy_group.draw(gamegui)
             
             gamegui.draw_hud()
