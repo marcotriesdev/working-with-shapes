@@ -16,6 +16,9 @@ c = "c"
 x = "x"
 
 
+#PARA ESCALAR TEXTURAS DE PIXELART:
+
+global_scale = 4
 
 
 #FONTS:
@@ -262,7 +265,8 @@ class Circle(Animated):
         super().__init__(animations)
 
         self.location = location
-        self.radius = radius 
+        self.radius = radius
+        self.radius2 = self.radius * 2 * global_scale
         self.color = color
         self.hp = hp
         self.score = 0
@@ -276,21 +280,23 @@ class Circle(Animated):
         self.erase = False
 
         self.direction = 0
-        self.value = 1    
+        self.value = 1   
+
+        self.texture_position = Vector2(self.location.x-self.radius2,self.location.y-self.radius2)
 
 
 
     def draw(self):
 
         self.texture = load_texture(self.current_animation[int(self.frame_index)] )#CURRENT TEXTURE/ FRAME
-        print(self.texture)
+        print(self.current_animation[int(self.frame_index)])
         if self.hurt:
-            draw_circle_v(self.location,self.radius,RED)
-            draw_texture_ex(self.texture,self.location,0,0,RED)
+            draw_circle_v(self.location,self.radius*global_scale,RED)
+            draw_texture_ex(self.texture,self.texture_position,0,global_scale,RED)
 
         else:    
-            draw_circle_v(self.location,self.radius,self.color)
-            draw_texture_ex(self.texture,self.location,0,0,WHITE)
+            draw_circle_v(self.location,self.radius*global_scale,self.color)
+            draw_texture_ex(self.texture,self.texture_position,0,global_scale,WHITE)
 
 
 
@@ -302,7 +308,7 @@ class Circle(Animated):
 
             if check_collision_circles(self.location,self.radius,e.location,e.radius) and e.type == "coin" :
                 
-                newfadingcoin = FadingCoin(e.location,e.radius,e.color,e.hp)
+                newfadingcoin = FadingCoin(e.location,e.radius,e.color,e.hp,coin_animations)
                 group.remove_element(e)
                 group.add(newfadingcoin)
                 self.score += 1
@@ -387,6 +393,7 @@ class Circle(Animated):
 
         self.location += self.input(self.velocity)
 
+        self.texture_position = Vector2(self.location.x-self.radius2,(self.location.y-self.radius2)-10)
         self.current_animation = self.animations_array[self.state]
 
         self.animate()
