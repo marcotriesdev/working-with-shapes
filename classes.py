@@ -1,5 +1,6 @@
 from raylibpy import *
 from enum import Enum
+from sprites_and_animations import *
 import asyncio
 
 
@@ -64,10 +65,10 @@ class Estado_global(Enum):
     dead = 4
 
 
-class Estado(Enum):
+class States(Enum):
 
     idle = 1 
-    chasing = 2
+    moving = 2
     attack = 3
     flee = 4
 
@@ -101,11 +102,11 @@ class TerrainGenerator:
                         marginx += terrainSize["big"].x
 
                     case "c":
-                        newitem = Coin(Vector2(xstart+marginx,ystart+marginy),15,GREEN,1)
+                        newitem = Coin(Vector2(xstart+marginx,ystart+marginy),15,GREEN,1,coin_animations)
                         group_items.add(newitem)
 
                     case "x":
-                        newenemy = Enemy(Vector2(xstart+marginx,ystart+marginy),20,BLACK,10,2,2)
+                        newenemy = Enemy(Vector2(xstart+marginx,ystart+marginy),20,BLACK,10,2,enemy_animations, 2)
                         group_enemy.add(newenemy)
 
                     case 0 :
@@ -183,9 +184,82 @@ class TerrainBlock:
 
         draw_rectangle_rec(self.drawsize,self.color)
         
-class Circle:
 
-    def __init__(self,location,radius,color,hp,movespeed = 1):
+# NOT BEING USED YET---------------------------
+class StateCharacter:
+
+    def __init__(self,init_state):
+
+        self.state = init_state
+
+    def self_state(self):
+
+        match self.self_state:
+
+            case States.idle:
+                return "idle"
+            case States.moving:
+                return "moving"
+            case States.attack:
+                return "attack"
+            case States.flee:
+                return "flee"
+# NOT BEING USED YET---------------------------
+
+
+class Animated:
+
+    def __init__(self,animations):
+
+        self.animations_array = animations
+        self.frame_index = 0
+        self.current_animation = self.animations_array["idle"]
+        self.texture = self.current_animation[0]
+        self.animation_speed = 0.1
+
+        self.playing = True
+
+        self.load_textures()
+
+    def load_textures(self):
+
+        print("cargando texturas")
+        for animation in self.animations_array:
+            for sprite in animation:
+                load_texture(sprite)
+                print(f"se cargó: {sprite}")
+
+    def unload_textures(self):
+
+        print("eliminando texturas")
+        for animation in self.animations_array:
+            for sprite in animation:
+                unload_texture(sprite)
+                print(f"se eliminó: {sprite}")
+
+    def animate(self):
+
+
+        if self.animate:
+
+            self.frame_index += self.animation_speed
+
+            if self.frame_index > len(self.current_animation) - 1:
+                self.frame_index = 0
+
+        
+            
+
+
+    def __del__(self):
+
+        self.unload_textures()
+
+
+class Circle(Animated):
+
+    def __init__(self,location,radius,color,hp,animations,movespeed = 1):
+        super().__init__(animations)
 
         self.location = location
         self.radius = radius 
@@ -197,6 +271,7 @@ class Circle:
         self.hurt = False
         self.movebuffer = 0
         self.type = "player"
+        self.state = "idle"
         self.collisions_list = []
         self.erase = False
 
@@ -207,10 +282,17 @@ class Circle:
 
     def draw(self):
 
+        self.texture = load_texture(self.current_animation[int(self.frame_index)] )#CURRENT TEXTURE/ FRAME
+        print(self.texture)
         if self.hurt:
             draw_circle_v(self.location,self.radius,RED)
+            draw_texture_ex(self.texture,self.location,0,0,RED)
+
         else:    
             draw_circle_v(self.location,self.radius,self.color)
+            draw_texture_ex(self.texture,self.location,0,0,WHITE)
+
+
 
        
     def collision_coins(self,group):
@@ -269,7 +351,6 @@ class Circle:
         velocity = Vector2(0,0)
 
 
-
         if is_key_down(KEY_A):
             velocity.x -= self.movespeed
         if is_key_down(KEY_D):
@@ -278,6 +359,11 @@ class Circle:
             velocity.y -= self.movespeed
         if is_key_down(KEY_S):
             velocity.y += self.movespeed
+
+        if velocity == Vector2(0,0):
+            self.state = "idle"
+        else:
+            self.state = "moving"
 
         return velocity
 
@@ -301,14 +387,20 @@ class Circle:
 
         self.location += self.input(self.velocity)
 
+        self.current_animation = self.animations_array[self.state]
+
+        self.animate()
+
 class Enemy(Circle):
 
-    def __init__(self,location,radius,color,hp, enemylevel, movespeed = 1):
-        super().__init__(location,radius,color,hp,movespeed = 1)
+    def __init__(self,location,radius,color,hp, enemylevel, animations, movespeed = 1):
+        super().__init__(location,radius,color,hp,animations,movespeed = 1)
 
         self.color = BLACK
         self.enemylevel = enemylevel
         self.type = "enemy"
+        self.current_animation = self.animations_array["moving"]
+
 
 
     def enemyAI(self):
@@ -373,6 +465,7 @@ class Coin(Circle):
 
         for i in range(self.thickness):
             draw_circle_lines_v(self.location, self.radius+i, self.color)
+
 
 class FadingCoin(Coin):
 
@@ -511,7 +604,7 @@ def game_loop(WINDOW_WIDTH,WINDOW_HEIGHT,game_title,current_state):
 
     dimensions = Vector2(WINDOW_WIDTH,WINDOW_HEIGHT)
                     
-    player1 = Circle(Vector2(500,500),10,SKYBLUE,10,5)
+    player1 = Circle(Vector2(500,500),10,SKYBLUE,10,player_animations,5)
     gamegui = Gui(WINDOW_WIDTH,WINDOW_HEIGHT, game_title,player1)
 
 
